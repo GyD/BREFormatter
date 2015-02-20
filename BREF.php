@@ -1,6 +1,6 @@
 <?php
 
-use GyD\BREFormatter;
+namespace GyD\BREFormatter;
 
 /**
  * Class to format URLs from text into bootstrap friendly embed code
