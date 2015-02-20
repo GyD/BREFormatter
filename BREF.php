@@ -1,13 +1,13 @@
 <?php
 
-namespace GyD\BootstrapResponsiveEmbedFormatter;
+use GyD\BREFormatter;
 
 /**
  * Class to format URLs from text into bootstrap friendly embed code
  *
  * Class BootstrapResponsiveEmbedFormatter
  */
-class BootstrapResponsiveEmbedFormatter
+class BREF
 {
 
     /**

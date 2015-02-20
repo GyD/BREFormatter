@@ -5,19 +5,19 @@
     "formatter",
     "bootstrap"
   ],
-  "homepage": "https://github.com/GyD/BootstrapResponsiveEmbedFormatter",
+  "homepage": "https://github.com/GyD/BREFormatter",
   "type": "library",
   "license": "MIT",
   "authors": [
     {
       "name": "GyD",
       "email": "oni@gyd.be",
-      "homepage": "https://github.com/GyD/BootstrapResponsiveEmbedFormatter"
+      "homepage": "https://github.com/GyD/BREFormatter"
     }
   ],
   "autoload": {
     "psr-0": {
-      "BootstrapResponsiveEmbedFormatter": ""
+      "GyD\\BREFormatter": ""
     }
   }
 }
