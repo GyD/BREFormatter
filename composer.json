@@ -1,5 +1,5 @@
 {
-  "name": "GyD/BootstrapResponsiveEmbedFormatter",
+  "name": "gyd/bootstrap-responsive-embed-formatter",
   "description": "A formatter to transform URLs to responsive Bootstrap Embed tag.",
   "keywords": [
     "formatter",
