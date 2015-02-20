@@ -1,0 +1,23 @@
+{
+  "name": "GyD/BootstrapResponsiveEmbedFormatter",
+  "description": "A formatter to transform URLs to responsive Bootstrap Embed tag.",
+  "keywords": [
+    "formatter",
+    "bootstrap"
+  ],
+  "homepage": "https://github.com/GyD/BootstrapResponsiveEmbedFormatter",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "GyD",
+      "email": "oni@gyd.be",
+      "homepage": "https://github.com/GyD/BootstrapResponsiveEmbedFormatter"
+    }
+  ],
+  "autoload": {
+    "psr-0": {
+      "BootstrapResponsiveEmbedFormatter": ""
+    }
+  }
+}
