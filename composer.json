@@ -1,5 +1,5 @@
 {
-  "name": "gyd/bootstrap-responsive-embed-formatter",
+  "name": "gyd/bref-ormatter",
   "description": "A formatter to transform URLs to responsive Bootstrap Embed tag.",
   "keywords": [
     "formatter",
