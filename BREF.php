@@ -32,6 +32,7 @@ class BREF
                 if (preg_match($pattern, $url, $matches)) {
                     $method = 'parse' . ucfirst($mediaName);
                     $this->{$method}($matches, $url);
+                    continue;
                 }
             }
         }
@@ -68,9 +69,19 @@ class BREF
     private function getRules()
     {
         return array(
-          '`(?:https?|ftp)://(www\.)?youtube\.com\/watch\?(.*)?v=(?P<ID>[^&#]+)([^#]*)(?P<HasTime>#t=(?P<Time>[0-9]+))?`' => 'youtube',
-          '`(?:https?)://(www\.)?youtu\.be\/(?P<ID>[^&#]+)(?P<HasTime>#t=(?P<Time>[0-9]+))?`' => 'youtube',
+          '/(?:https?|ftp):\/\/(?:player.|www.)?(?:youtu(?:be\.com|\.be|be\.googleapis\.com))\/(?:video\/|embed\/|watch\?v=|v\/)?(?P<ID>[A-Za-z0-9._%-]*)(?P<HasTime>[#|?]t=(?P<Time>[0-9a-z]+))?/' => 'youtube',
+          '/(?:https?|ftp):\/\/(?:player.|www.)?(?:vimeo.com)\/(?:video\/|embed\/|watch\?v=|v\/)?(?P<ID>[A-Za-z0-9._%-]*)/' => 'vimeo',
         );
+    }
+
+    private function parseVimeo($matches, $url)
+    {
+        $test = $this->generateEmbedItem('iframe', array(
+          'src' => 'https://player.vimeo.com/video/' . $matches['ID'],
+          'frameborder' => '0',
+          'allowfullscreen' => '1',
+        ));
+        $this->replace($url, $test);
     }
 
     /**
@@ -83,7 +94,15 @@ class BREF
     {
         $src = 'https://www.youtube.com/embed/' . $matches['ID'];
         if (!empty($matches['HasTime'])) {
-            $src .= '?start=' . $matches['HasTime'];
+            preg_match('/(?:(?P<Hours>[0-9]+)h)*(?:(?P<Minutes>[0-9]+)m)*(?P<Seconds>[0-9]+s?)*/g', $matches['Time'], $time_matches);
+
+            $time = array('Hours' => 0, 'Minutes' => 0, 'Seconds' => 0);
+            foreach ($time_matches as $t => $i) {
+                $time[$t] += $i;
+            }
+
+
+            $src .= '?start=' . (($time['Hours'] * 3600) + ($time['Minutes'] * 60) + $time['Seconds']);
         }
         $this->replace($url, $this->generateEmbedItem('iframe', array(
           'src' => $src,
