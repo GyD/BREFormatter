@@ -17,6 +17,13 @@ class BREF
     private $text = '';
 
     /**
+     * Contain already parsed urls
+     *
+     * @var array
+     */
+    private $cache = array();
+
+    /**
      * Format text
      *
      * @param $text
@@ -71,17 +78,54 @@ class BREF
         return array(
           '/(?:https?|ftp):\/\/(?:player.|www.)?(?:youtu(?:be\.com|\.be|be\.googleapis\.com))\/(?:video\/|embed\/|watch\?v=|v\/)?(?P<ID>[A-Za-z0-9._%-]*)(?P<HasTime>[#|?]t=(?P<Time>[0-9a-z]+))?/' => 'youtube',
           '/(?:https?|ftp):\/\/(?:player.|www.)?(?:vimeo.com)\/(?:video\/|embed\/|watch\?v=|v\/)?(?P<ID>[A-Za-z0-9._%-]*)/' => 'vimeo',
+          '/https?:\/\/(:?www)?soundcloud.com.*/' => 'soundcloud',
         );
     }
 
+    /**
+     * Parse Soundcloud urls into iframe
+     *
+     * @param $matches
+     * @param $url
+     */
+    private function parseSoundcloud($matches, $url)
+    {
+        if (array_key_exists($url, $this->cache)) {
+            return $this->replace($url, $this->cache[$url]);
+        }
+        $json = file_get_contents('http://soundcloud.com/oembed?format=json&url=' . urlencode($url) . '&iframe=true');
+        if (!empty($json)) {
+            if ($json = json_decode($json)) {
+                $soundcloudFrame = $json->html;
+                $matches = array();
+                preg_match('<iframe.+src="(?P<url>[^"]+)".*>', $soundcloudFrame, $matches);
+                if (!empty($matches['url'])) {
+                    $soundcloudFrame = $this->generateEmbedItem('iframe', array(
+                      'src' => $matches['url'],
+                      'frameborder' => '0',
+                      'allowfullscreen' => '1',
+                    ));
+                }
+
+                $this->cache[$url] = $soundcloudFrame;
+                $this->replace($url, $soundcloudFrame);
+
+            }
+        }
+    }
+
+    /**
+     * Parse Vimeo Vidéos into <iframe />
+     * @param $matches
+     * @param $url
+     */
     private function parseVimeo($matches, $url)
     {
-        $test = $this->generateEmbedItem('iframe', array(
+        $this->replace($url, $this->generateEmbedItem('iframe', array(
           'src' => 'https://player.vimeo.com/video/' . $matches['ID'],
           'frameborder' => '0',
           'allowfullscreen' => '1',
-        ));
-        $this->replace($url, $test);
+        )));
     }
 
     /**
@@ -114,15 +158,16 @@ class BREF
     /**
      * Simple replace function
      *
-     * @param $url
-     * @param $replace
+     * @param string $url
+     * @param string $replace
+     * @param string $format
      */
-    private function replace($url, $replace)
+    private function replace($url, $replace, $format = '16by9')
     {
         $container = $this->generateHtmlTag('div', array(
           'class' => array(
             'embed-responsive',
-            'embed-responsive-16by9'
+            'embed-responsive-' . $format
           ),
         ),
           $replace
@@ -175,6 +220,21 @@ class BREF
         $attributes['class'][] = 'embed-responsive-item';
 
         return $this->generateHtmlTag($tagName, $attributes, $content);
+    }
+
+    /**
+     * @param array $cache
+     */
+    public function setCache(array $cache)
+    {
+        $this->cache = $cache;
+    }
+
+    /**
+     * @return array
+     */
+    public function getCache(){
+        return $this->cache;
     }
 
 }
