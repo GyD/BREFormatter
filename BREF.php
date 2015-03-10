@@ -24,6 +24,28 @@ class BREF
     private $cache = array();
 
     /**
+     * Are external call (ex: soundcloud API) allowed
+     *
+     * @var bool
+     */
+    private $allowExternalCall = false;
+
+    /**
+     * Get rules and the method used
+     *
+     * @return array
+     */
+    private function getRules()
+    {
+        return array(
+          '/(?:https?|ftp):\/\/(?:player.|www.)?(?:youtu(?:be\.com|\.be|be\.googleapis\.com))\/(?:video\/|embed\/|watch\?v=|v\/)?(?P<ID>[A-Za-z0-9._%-]*)(?P<HasTime>[#|?]t=(?P<Time>[0-9a-z]+))?/i' => 'youtube',
+          '/(?:https?|ftp):\/\/(?:player.|www.)?(?:vimeo.com)\/(?:video\/|embed\/|watch\?v=|v\/)?(?P<ID>[A-Za-z0-9._%-]*)/i' => 'vimeo',
+          '/https?:\/\/(:?www)?soundcloud.com.*/i' => 'soundcloud',
+          '/https?:\/\/pastebin\.com\/(?P<ID>\w+)/i' => 'pastebin'
+        );
+    }
+
+    /**
      * Format text
      *
      * @param $text
@@ -31,7 +53,7 @@ class BREF
      */
     public function format($text)
     {
-        $this->text = $text;
+        $this->text = ' ' . $text . ' ';
         foreach ($this->parseURLs(true) as $url) {
             foreach ($this->getRules() as $pattern => $mediaName) {
                 $matches = array();
@@ -44,7 +66,7 @@ class BREF
             }
         }
 
-        return $this->text;
+        return trim($this->text);
     }
 
     /**
@@ -62,97 +84,41 @@ class BREF
             preg_match_all("`(?:(</?)([!a-z]+))|(/?\s*>)|((?:https?|ftp)://[\@a-z0-9\x21\x23-\x27\x2a-\x2e\x3a\x3b\/;\x3f-\x7a\x7e\x3d]+)`i", $this->text, $matches);
             if (array_key_exists(4, $matches)) {
                 $urls = $matches[4];
-            }
         }
+    }
 
         return $urls;
     }
 
     /**
-     * Get rules and the method used
-     *
      * @return array
      */
-    private function getRules()
+    public function getCache()
     {
-        return array(
-          '/(?:https?|ftp):\/\/(?:player.|www.)?(?:youtu(?:be\.com|\.be|be\.googleapis\.com))\/(?:video\/|embed\/|watch\?v=|v\/)?(?P<ID>[A-Za-z0-9._%-]*)(?P<HasTime>[#|?]t=(?P<Time>[0-9a-z]+))?/' => 'youtube',
-          '/(?:https?|ftp):\/\/(?:player.|www.)?(?:vimeo.com)\/(?:video\/|embed\/|watch\?v=|v\/)?(?P<ID>[A-Za-z0-9._%-]*)/' => 'vimeo',
-          '/https?:\/\/(:?www)?soundcloud.com.*/' => 'soundcloud',
-        );
+        return $this->cache;
     }
 
     /**
-     * Parse Soundcloud urls into iframe
+     * @param array $cache
+     */
+    public function setCache(array $cache)
+    {
+        $this->cache = $cache;
+    }
+
+    /**
+     * Allow the class to do external call
      *
-     * @param $matches
-     * @param $url
+     * @param bool|null $allow
+     * @return bool
      */
-    private function parseSoundcloud($matches, $url)
+    public function allowExternalCall($allow = null)
     {
-        if (array_key_exists($url, $this->cache)) {
-            return $this->replace($url, $this->cache[$url]);
+        if (is_bool($allow)) {
+            $this->allowExternalCall = $allow;
+        } else {
+            return $this->allowExternalCall;
         }
-        $json = file_get_contents('http://soundcloud.com/oembed?format=json&url=' . urlencode($url) . '&iframe=true');
-        if (!empty($json)) {
-            if ($json = json_decode($json)) {
-                $soundcloudFrame = $json->html;
-                $matches = array();
-                preg_match('<iframe.+src="(?P<url>[^"]+)".*>', $soundcloudFrame, $matches);
-                if (!empty($matches['url'])) {
-                    $soundcloudFrame = $this->generateEmbedItem('iframe', array(
-                      'src' => $matches['url'],
-                      'frameborder' => '0',
-                      'allowfullscreen' => '1',
-                    ));
-                }
-
-                $this->cache[$url] = $soundcloudFrame;
-                $this->replace($url, $soundcloudFrame);
-
-            }
-        }
-    }
-
-    /**
-     * Parse Vimeo Vidéos into <iframe />
-     * @param $matches
-     * @param $url
-     */
-    private function parseVimeo($matches, $url)
-    {
-        $this->replace($url, $this->generateEmbedItem('iframe', array(
-          'src' => 'https://player.vimeo.com/video/' . $matches['ID'],
-          'frameborder' => '0',
-          'allowfullscreen' => '1',
-        )));
-    }
-
-    /**
-     * Youtube parse function
-     *
-     * @param $matches
-     * @param $url
-     */
-    private function parseYoutube($matches, $url)
-    {
-        $src = 'https://www.youtube.com/embed/' . $matches['ID'];
-        if (!empty($matches['HasTime'])) {
-            preg_match('/(?:(?P<Hours>[0-9]+)h)*(?:(?P<Minutes>[0-9]+)m)*(?P<Seconds>[0-9]+s?)*/g', $matches['Time'], $time_matches);
-
-            $time = array('Hours' => 0, 'Minutes' => 0, 'Seconds' => 0);
-            foreach ($time_matches as $t => $i) {
-                $time[$t] += $i;
-            }
-
-
-            $src .= '?start=' . (($time['Hours'] * 3600) + ($time['Minutes'] * 60) + $time['Seconds']);
-        }
-        $this->replace($url, $this->generateEmbedItem('iframe', array(
-          'src' => $src,
-          'frameborder' => "0",
-          'allowfullscreen' => '1'
-        )));
     }
 
     /**
@@ -223,18 +189,117 @@ class BREF
     }
 
     /**
-     * @param array $cache
+     * @param $matches
+     * @param $url
      */
-    public function setCache(array $cache)
+    private function parseImgur($matches, $url)
     {
-        $this->cache = $cache;
+        if ($this->allowExternalCall()) {
+            $xml_text = file_get_contents('https://api.imgur.com/2/image/' . $matches['ID']);
+            if (!empty($xml_text)) {
+                $xml = simplexml_load_string($xml_text);
+                $img = $xml->links->original;
+            }
+        }
+
+        $this->text = str_ireplace($url, $this->generateHtmlTag('img', ['src' => $img]), $this->text);
     }
 
     /**
-     * @return array
+     * Parse Pastebien urls
+     * @param $matches
+     * @param $url
      */
-    public function getCache(){
-        return $this->cache;
+    private function parsePastebin($matches, $url)
+    {
+        $this->replace($url, $this->generateEmbedItem('iframe', array(
+          'src' => 'http://pastebin.com/embed_iframe.php?i=' . $matches['ID'],
+          'frameborder' => '0',
+        )));
+    }
+
+    /**
+     * Parse Soundcloud urls into iframe
+     *
+     * @param $matches
+     * @param $url
+     * @return null
+     */
+    private function parseSoundcloud($matches, $url)
+    {
+        // if external call are not allowed, stop here
+        if (!$this->allowExternalCall()) {
+            return null;
+        }
+
+        // if the url has already been parsed, process to the replace
+        if (array_key_exists($url, $this->cache)) {
+            $this->replace($url, $this->cache[$url]);
+
+            return null;
+        }
+
+        // call soundcloud to get iframe code
+        $json = file_get_contents('http://soundcloud.com/oembed?format=json&url=' . urlencode($url) . '&iframe=true');
+        if (!empty($json)) {
+            if ($json = json_decode($json)) {
+                $soundcloudFrame = $json->html;
+                $matches = array();
+                preg_match('<iframe.+src="(?P<url>[^"]+)".*>', $soundcloudFrame, $matches);
+                if (!empty($matches['url'])) {
+                    $soundcloudFrame = $this->generateEmbedItem('iframe', array(
+                      'src' => $matches['url'],
+                      'frameborder' => '0',
+                      'allowfullscreen' => '1',
+                    ));
+                }
+
+                $this->cache[$url] = $soundcloudFrame;
+                $this->replace($url, $soundcloudFrame);
+
+            }
+        }
+    }
+
+    /**
+     * Parse Vimeo Vidéos into <iframe />
+     * @param $matches
+     * @param $url
+     */
+    private function parseVimeo($matches, $url)
+    {
+        $this->replace($url, $this->generateEmbedItem('iframe', array(
+          'src' => 'https://player.vimeo.com/video/' . $matches['ID'],
+          'frameborder' => '0',
+          'allowfullscreen' => '1',
+        )));
+    }
+
+    /**
+     * Youtube parse function
+     *
+     * @param $matches
+     * @param $url
+     */
+    private function parseYoutube($matches, $url)
+    {
+        $src = 'https://www.youtube.com/embed/' . $matches['ID'];
+        if (!empty($matches['HasTime'])) {
+            preg_match('/(?:(?P<Hours>[0-9]+)h)*(?:(?P<Minutes>[0-9]+)m)*(?P<Seconds>[0-9]+s?)*/g', $matches['Time'], $time_matches);
+
+            $time = array('Hours' => 0, 'Minutes' => 0, 'Seconds' => 0);
+            foreach ($time_matches as $t => $i) {
+                $time[$t] += $i;
+            }
+
+
+            $src .= '?start=' . (($time['Hours'] * 3600) + ($time['Minutes'] * 60) + $time['Seconds']);
+        }
+        $this->replace($url, $this->generateEmbedItem('iframe', array(
+          'src' => $src,
+          'frameborder' => "0",
+          'allowfullscreen' => '1'
+        )));
     }
 
 }
